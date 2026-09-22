@@ -1,401 +1,664 @@
-eFarmer
+# eFarmer Backend
 
-eFarmer is a digital platform for agricultural procurement.
+Backend service for **eFarmer**, an agricultural procurement and queue management platform designed to support farmers, procurement centres, and administrators.
 
-This repository contains the backend developed so far for the eFarmer project. Other parts of the project, including the frontend, may be maintained separately.
+The backend provides the APIs, business rules, slot allocation, queue management, centre capacity handling, authentication, database operations, and reporting services required by the eFarmer platform.
 
-What is included
+> **Backend Status:** Ready for frontend integration.
 
-The backend currently covers:
+---
 
-Farmer and procurement centre data
+## Overview
 
-Eligibility and procurement rules
+eFarmer helps farmers book procurement slots, track their queue status, and receive updates while allowing procurement centre staff and administrators to manage capacity, queues, procurement records, and system operations.
 
-Centre capacity
+The system is designed with **low-connectivity areas** in mind. The frontend can continue working with locally stored data and synchronize with the backend when connectivity is available.
 
-Procurement intents
+This repository contains the **backend implementation and supporting services** for the platform.
 
-Priority-based centre selection
+---
 
-Daily queues and tokens
+## Core Features
 
-Capacity allocation
+### Authentication and Access Control
 
-JWT authentication and role-based access control
+- User login and session handling
+- **JWT-based authentication**
+- Role-based access for:
+  - Farmer
+  - Centre Staff
+  - Administrator
+- Protected API routes
+- User and centre access validation
 
-PostgreSQL database migrations
+### Farmer and Centre Management
 
-OpenAPI documentation
+- Farmer profile management
+- Farmer eligibility checks
+- Procurement centre management
+- Centre capacity management
+- Centre status and configuration
+- Slot availability handling
 
-Tech stack
+### Priority-Based Slot Allocation
 
-Python 3.13 · FastAPI · Pydantic · SQLAlchemy 2 · PostgreSQL · Alembic · JWT · Pytest · Ruff · Mypy · Docker Compose
+Farmers can select multiple preferred procurement centres in priority order.
 
-Quick start
+The allocation logic:
 
-Windows
+1. Farmer selects preferred centres.
+2. The system checks the centres in the selected order.
+3. Each centre is checked for available capacity and slots.
+4. If the first centre is full, the system checks the next centre.
+5. The first available slot is assigned.
+6. A booking/token is generated for the farmer.
 
-Run the first block:
+This allows a farmer to provide multiple centre preferences instead of depending on a single centre.
 
-git clone https://github.com/darshanhanra11k-star/eFarmer.git
-cd eFarmer
-py -3.13 -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
-Copy-Item .env.example .env
+### Queue Management
 
-Now open .env and set your own DATABASE_URL and JWT_SECRET_KEY.
-
-Then continue:
-
-docker compose up -d
-alembic upgrade head
-uvicorn app.main:app --reload --port 8000
-
-Linux / macOS
-
-Run the first block:
-
-git clone https://github.com/darshanhanra11k-star/eFarmer.git
-cd eFarmer
-python3.13 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-cp .env.example .env
-
-Now open .env and set your own DATABASE_URL and JWT_SECRET_KEY.
-
-Then continue:
-
-docker compose up -d
-alembic upgrade head
-uvicorn app.main:app --reload --port 8000
-
-Database
-
-The included Docker Compose setup is for local development.
-
-Current local PostgreSQL settings:
-
-Host: localhost
-Port: 5432
-User: postgres
-Password: postgres
-Database: farmer
-
-Use:
-
-DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/farmer
-
-Use your own database and credentials when using a managed PostgreSQL service.
-
-Do not commit .env.
-
-API
-
-Backend URL:
-
-http://localhost:8000
-
-Swagger:
-
-http://localhost:8000/docs
-
-ReDoc:
-
-http://localhost:8000/redoc
-
-OpenAPI:
-
-http://localhost:8000/openapi.json
-
-The full API reference is in api-contracts.md.
-
-To regenerate it:
-
-python scripts/generate_api_contracts.py
-
-Main endpoints
-
-Area
-
-Method
-
-Endpoint
-
-Health
-
-GET
-
-/api/v1/health
-
-Readiness
-
-GET
-
-/api/v1/ready
-
-Farmers
-
-POST
-
-/api/v1/farmers
-
-Farmers
-
-GET
-
-/api/v1/farmers/{id}
-
-Centres
-
-GET
-
-/api/v1/centres
-
-Capacity
-
-GET
-
-/api/v1/centres/{id}/capacity
-
-Centre selection
-
-POST
-
-/api/v1/farmers/me/centre-selection
-
-Procurement
-
-POST
-
-/api/v1/procurement
-
-Queue
-
-POST
-
-/api/v1/queues/{id}/join
-
-Queue
-
-POST
-
-/api/v1/queues/{id}/call-next
-
-Token
-
-POST
-
-/api/v1/tokens/{id}/process
-
-Token
-
-POST
-
-/api/v1/tokens/{id}/complete
-
-Allocation
-
-GET
-
-/api/v1/centres/{centre_id}/allocation
-
-See api-contracts.md for the complete route list, request bodies, responses and status codes.
-
-Authentication
-
-The API uses Bearer JWT authentication.
-
-There is currently no public login endpoint in this repository. Authentication is handled through the existing JWT flow.
-
-For local development, the repository includes a token helper.
-
-First, find a real user in the local database:
-
-docker compose exec db psql -U postgres -d farmer -c "SELECT id, role FROM users LIMIT 5;"
-
-Use one of the returned id values as USER_ID.
-
-Farmer:
-
-python -c "from app.core.security import create_access_token; from app.core.rbac import Role; print(create_access_token('USER_ID', role=Role.FARMER))"
-
-Officer:
-
-python -c "from app.core.security import create_access_token; from app.core.rbac import Role; print(create_access_token('USER_ID', role=Role.OFFICER))"
-
-USER_ID should be the UUID of an existing user in your local database.
-
-Send the token with:
-
-Authorization: Bearer <token>
-
-Current roles:
-
-FARMER
-OFFICER
-
-CORS
-
-Development origins are configured through:
-
-CORS_ALLOWED_ORIGINS=["http://localhost:3000","http://localhost:5173"]
-
-Add the frontend origin to .env when needed.
-
-Do not use a wildcard origin with credentials enabled.
-
-Errors
-
-API errors use a common JSON format:
-
-{
-  "code": "error_code",
-  "message": "Message",
-  "status_code": 400,
-  "details": {}
-}
-
-Validation errors use the same format with:
-
-{
-  "code": "validation_error",
-  "message": "Enter a valid value.",
-  "status_code": 422,
-  "details": {
-    "errors": []
-  }
-}
-
-Database migrations
-
-Apply migrations:
-
-alembic upgrade head
-
-Check the current revision:
-
-alembic current
-
-The current migration head is:
-
-0007
-
-Check whether model changes are missing migrations:
-
-alembic check
-
-alembic check checks for pending model changes that are not represented by migrations. It does not apply migrations.
-
-Tests
-
-Run the full test suite:
-
-pytest -q
-
-Expected:360+ tests passing with 0 failures
-
-Run a specific test file:
-
-pytest tests/test_cors.py
-pytest tests/test_priority_centre_api.py
-
-Code checks
-
-ruff check .
-ruff format --check .
-mypy app tests
-alembic check
-
-Project structure
-
+- Token generation
+- Queue position tracking
+- Farmers ahead calculation
+- Service progress tracking
+- Queue status updates
+- Queue cancellation and rescheduling
+- Centre-wise queue records
+
+### Wait-Time Estimation
+
+The backend maintains the data required for queue wait-time estimation, including:
+
+- Current queue size
+- Farmers ahead
+- Centre capacity
+- Previous processing history
+- Current service progress
+- Estimated service time
+
+The estimated waiting time can be updated as the queue progresses.
+
+### Procurement Management
+
+- Farmer verification
+- Procurement record creation
+- Quantity recording
+- Procurement completion tracking
+- Centre-side procurement updates
+- Procurement history
+
+### Payment Records
+
+The backend supports payment-related records and transaction status tracking where payment integration is enabled.
+
+Typical payment states include:
+
+- Initiated
+- Verified
+- Confirmed
+
+External payment gateway or government payment integration can be connected through the corresponding service layer.
+
+### Monitoring and Reporting
+
+- Queue status
+- Procurement data
+- Payment status
+- Centre-level information
+- System logs
+- Audit records
+- Operational reports
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Backend | **FastAPI** |
+| Language | **Python** |
+| Database | **PostgreSQL** |
+| ORM | **SQLAlchemy** |
+| Data Validation | **Pydantic** |
+| Authentication | **JWT** |
+| Database Migrations | **Alembic** |
+| Testing | **Pytest** |
+| Code Quality | **Ruff** |
+| Type Checking | **Mypy** |
+| Local Services | **Docker Compose** |
+
+---
+
+## Architecture
+
+The backend follows a modular structure so that API routes, business rules, database models, and application services remain separated.
+
+```text
+                    ┌──────────────────────┐
+                    │      Farmer PWA      │
+                    └──────────┬───────────┘
+                               │
+                               │ REST API
+                               ▼
+                    ┌──────────────────────┐
+                    │      FastAPI         │
+                    │     API Layer        │
+                    └──────────┬───────────┘
+                               │
+             ┌─────────────────┼─────────────────┐
+             │                 │                 │
+             ▼                 ▼                 ▼
+      ┌─────────────┐   ┌──────────────┐  ┌──────────────┐
+      │ Allocation  │   │ Queue        │  │ Capacity     │
+      │ Logic       │   │ Management   │  │ Management   │
+      └──────┬──────┘   └──────┬───────┘  └──────┬───────┘
+             │                 │                 │
+             └─────────────────┼─────────────────┘
+                               ▼
+                    ┌──────────────────────┐
+                    │    Service Layer     │
+                    │ Business Operations  │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │     SQLAlchemy       │
+                    │         ORM          │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │     PostgreSQL       │
+                    └──────────────────────┘
+```
+
+---
+
+## Project Structure
+
+```text
 eFarmer/
+│
+├── app/
+│   ├── api/
+│   │   └── API routes and endpoints
+│   │
+│   ├── allocation/
+│   │   └── Priority-based slot allocation logic
+│   │
+│   ├── capacity/
+│   │   └── Procurement centre capacity logic
+│   │
+│   ├── core/
+│   │   └── Configuration, security, errors and shared utilities
+│   │
+│   ├── db/
+│   │   └── Database configuration and setup
+│   │
+│   ├── models/
+│   │   └── SQLAlchemy database models
+│   │
+│   ├── rules/
+│   │   └── Eligibility and business rules
+│   │
+│   ├── schemas/
+│   │   └── Pydantic request and response schemas
+│   │
+│   └── services/
+│       └── Application and business services
+│
+├── docs/
+│   └── Project documentation
+│
+├── migrations/
+│   └── Alembic database migrations
+│
+├── scripts/
+│   └── Utility and setup scripts
+│
+├── tests/
+│   └── Automated test suite
+│
 ├── .env.example
 ├── .gitignore
 ├── alembic.ini
-├── app/
-│   ├── api/            # API routes
-│   ├── allocation/     # Allocation logic
-│   ├── capacity/       # Capacity logic
-│   ├── core/           # Config, security, RBAC, errors and retry
-│   ├── db/             # Database setup
-│   ├── models/         # SQLAlchemy models
-│   ├── repositories/   # Database queries
-│   ├── rules/          # Eligibility rules
-│   ├── schemas/        # Request and response schemas
-│   └── services/       # Application logic
-├── migrations/         # Alembic migrations
-├── scripts/            # Project utility scripts
-├── docs/               # Project documentation
-├── tests/              # Tests
-├── api-contracts.md    # API reference
-├── docker-compose.yml  # Local PostgreSQL
-├── README.md
-└── pyproject.toml
+├── api-contracts.md
+├── docker-compose.yml
+├── pyproject.toml
+└── README.md
+```
 
-Working with the team
+---
 
-Before changing an existing endpoint, check api-contracts.md and the OpenAPI schema.
+## API Design
+
+The backend exposes REST APIs through FastAPI.
+
+The API contracts are maintained separately in:
+
+**`api-contracts.md`**
+
+Before modifying an existing endpoint, check:
+
+- API contract
+- OpenAPI schema
+- Request schema
+- Response schema
+- Service implementation
+- Database model
+- Existing tests
+
+This keeps the frontend and backend implementations synchronized.
+
+---
+
+## Main Backend Modules
+
+### API Layer
+
+Responsible for:
+
+- HTTP routes
+- Request handling
+- Response formatting
+- Authentication dependencies
+- Input validation
+- API error handling
+
+### Allocation Module
+
+Responsible for:
+
+- Reading farmer centre preferences
+- Checking centre capacity
+- Checking slot availability
+- Applying priority order
+- Assigning the first available centre and slot
+- Creating booking records
+
+### Capacity Module
+
+Responsible for:
+
+- Centre capacity
+- Available slots
+- Capacity checks
+- Slot availability
+- Capacity updates after allocation or processing
+
+### Rules Module
+
+Responsible for business rules such as:
+
+- Farmer eligibility
+- Centre-level constraints
+- Booking conditions
+- Procurement rules
+
+### Services Layer
+
+Contains application-level operations shared across API routes and other backend components.
+
+---
+
+## Database
+
+The backend uses **PostgreSQL** as the main database.
+
+The database stores information related to:
+
+- Farmers
+- Centres
+- Centre capacity
+- Slots
+- Queue records
+- Procurement records
+- Payment records
+- User access
+- Audit logs
+- System configuration
+
+**SQLAlchemy** is used for database access and **Alembic** is used for schema migrations.
+
+---
+
+## Environment Setup
+
+Create a local environment file from the example configuration:
+
+```bash
+cp .env.example .env
+```
+
+Configure the required environment variables in `.env`.
+
+Example:
+
+```env
+DATABASE_URL=postgresql://user:password@localhost:5432/efarmer
+SECRET_KEY=your-secret-key
+JWT_ALGORITHM=HS256
+```
+
+Do not commit real credentials or secret keys to GitHub.
+
+---
+
+## Running with Docker
+
+The repository includes a `docker-compose.yml` file for local development.
+
+Start the required services:
+
+```bash
+docker compose up -d
+```
+
+Check running containers:
+
+```bash
+docker compose ps
+```
+
+Stop the services:
+
+```bash
+docker compose down
+```
+
+---
+
+## Running the Backend Locally
+
+Install the project dependencies and start the FastAPI application.
+
+Example:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+The development server will be available at:
+
+```text
+http://127.0.0.1:8000
+```
+
+FastAPI documentation is available at:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Alternative OpenAPI documentation:
+
+```text
+http://127.0.0.1:8000/redoc
+```
+
+---
+
+## Database Migrations
+
+Create a new migration:
+
+```bash
+alembic revision --autogenerate -m "describe change"
+```
+
+Apply migrations:
+
+```bash
+alembic upgrade head
+```
+
+Check for model changes that are not represented by migrations:
+
+```bash
+alembic check
+```
+
+The migration files should always remain consistent with the SQLAlchemy models.
+
+---
+
+## Testing
+
+Run the complete test suite:
+
+```bash
+pytest -q
+```
+
+Run a specific test file:
+
+```bash
+pytest tests/test_core.py
+```
+
+or:
+
+```bash
+pytest tests/test_priority_centre_api.py
+```
+
+The repository includes tests for API behaviour, business rules, allocation logic, and other backend components.
+
+---
+
+## Code Quality
+
+Run Ruff checks:
+
+```bash
+ruff check .
+```
+
+Format-check the project:
+
+```bash
+ruff format --check .
+```
+
+Run Mypy:
+
+```bash
+mypy app tests
+```
+
+Before submitting a change, make sure the affected tests and code-quality checks pass.
+
+---
+
+## Offline-First Integration
+
+The complete eFarmer platform is designed around an **offline-first PWA**.
+
+The frontend can:
+
+- Store required data locally
+- Accept supported actions without an active connection
+- Queue changes for synchronization
+- Reconnect when the network is available
+- Send pending changes to the backend
+- Receive the latest server state
+
+The backend acts as the server-side source of truth when synchronization occurs.
+
+The sync process must handle:
+
+- Validation
+- Duplicate requests
+- Conflicting updates
+- Server-side business rules
+- Updated capacity
+- Updated queue state
+
+---
+
+## Team Development
+
+Before changing an existing endpoint, check:
+
+**`api-contracts.md`**
+
+and the current **OpenAPI schema**.
 
 Keep changes consistent across:
 
-API
-Schema
-Service
-Repository
-Model
-Tests
+- **API**
+- **Schema**
+- **Service**
+- **Repository**
+- **Model**
+- **Tests**
 
-Do not add new routes or database changes without checking the existing project structure and team ownership.
+Do not add a new route or database change without first checking the existing project structure and ownership of that module.
 
-Current status
+---
 
-This repository contains the current backend implementation for eFarmer and is ready for frontend integration.
+## Development Guidelines
 
-The complete eFarmer project is larger than this repository. Offline sync, ML-based wait-time prediction, payments and external government integrations are not part of this backend release.
+### Keep Business Logic Out of Routes
 
-Common problems
+API routes should mainly handle:
 
-pydantic_core.ValidationError: JWT_SECRET_KEY
+- Request validation
+- Authentication
+- Calling the required service
+- Returning the response
 
-Set JWT_SECRET_KEY in .env. It must meet the minimum length required by the backend.
+Business decisions should remain inside the appropriate service or module.
 
-psycopg.OperationalError: connection refused
+### Keep Database Access Centralized
 
-PostgreSQL is not running. Start it with:
+Use the existing database and repository/service structure rather than creating separate direct database access inside API routes.
 
-docker compose up -d
+### Validate Important Operations
 
-Then check:
+Operations such as slot booking, queue updates, capacity changes, and procurement updates should be validated on the backend even when the frontend already performs validation.
 
-docker compose ps
+The backend must remain the final validation layer.
 
-ModuleNotFoundError: No module named 'app'
+---
 
-Install the project:
+## Current Backend Scope
 
-pip install -e ".[dev]"
+This repository contains the current backend implementation for **eFarmer** and is structured for frontend integration.
 
-Run commands from the repository root.
+The larger eFarmer platform may contain additional components outside this repository.
 
-401 Unauthorized
+The following areas are **not part of this backend release**:
 
-Check that:
+- Offline storage implementation in the PWA
+- Frontend UI
+- ML-based wait-time prediction model
+- Final external payment integration
+- External government service integrations
 
-the Authorization header contains a Bearer token
+These components can be connected through the defined API and service interfaces as the complete system is developed.
 
-the token has not expired
+---
 
-the server and token generator use the same JWT_SECRET_KEY
+## Project Status
 
-Also make sure USER_ID belongs to a user in the local database.
+### Implemented
 
-CORS error in the browser
+- FastAPI backend structure
+- PostgreSQL database integration
+- SQLAlchemy models
+- Alembic migrations
+- JWT authentication
+- Role-based access
+- Farmer and centre management
+- Capacity management
+- Priority-based allocation logic
+- Queue management
+- API contracts
+- Automated tests
+- Code-quality checks
 
-Make sure the frontend origin is listed in CORS_ALLOWED_ORIGINS in .env, then restart the backend.
+### Integration Ready
 
-License
+- Farmer PWA
+- Centre staff interface
+- Admin portal
+- Offline synchronization layer
+- Notification services
+- External payment services
+- Additional prediction and analytics components
 
-Add a project license when the team decides on one.
+---
+
+## Repository Files
+
+| File | Purpose |
+|---|---|
+| `README.md` | Project documentation |
+| `api-contracts.md` | API contract reference |
+| `pyproject.toml` | Python project configuration |
+| `alembic.ini` | Alembic configuration |
+| `docker-compose.yml` | Local service configuration |
+| `.env.example` | Environment variable template |
+
+---
+
+## Security
+
+Do not commit:
+
+- API keys
+- Database passwords
+- JWT secrets
+- Private credentials
+- Production environment files
+
+Use `.env` for local configuration and keep `.env` excluded from version control.
+
+---
+
+## Backend Flow
+
+A typical farmer booking flow is:
+
+```text
+Farmer
+   │
+   ▼
+PWA
+   │
+   ▼
+Login / Authentication
+   │
+   ▼
+Select Preferred Centres
+   │
+   ▼
+Priority-Based Allocation
+   │
+   ├── Centre 1 → Capacity Available → Assign Slot
+   │
+   ├── Centre 1 → Full
+   │        ↓
+   │      Check Centre 2
+   │
+   ├── Centre 2 → Full
+   │        ↓
+   │      Check Centre 3
+   │
+   └── Available Centre → Create Booking
+                              │
+                              ▼
+                         Queue Entry
+                              │
+                              ▼
+                         Status Updates
+```
+
+This sequence keeps the allocation decision on the backend so that centre capacity and booking conflicts are validated centrally.
+
+---
+
+## License
+
+This project is developed as part of the **Smart India Hackathon (SIH)** project for problem statement **SIH26032**.
